@@ -5,7 +5,8 @@ import subprocess
 import time
 import datetime
 import pygame
-
+import pyautogui
+import requests
 
 #datetime        
 date = datetime.date(2025, 11, 14)
@@ -16,8 +17,7 @@ time_str = now.strftime("%H:%M")
 # GUI Setup
 pygame.init()
 
-
-font = pygame.font.SysFont('C:\code\image\Monocraft.ttc', 30) 
+font = pygame.font.SysFont(r'C:\code\image\Monocraft.ttc', 30) 
 
 screen = pygame.display.set_mode((1500,1000))
 pygame.display.set_caption("jarvisGUI")
@@ -29,20 +29,95 @@ icon = pygame.image.load(r'C:\code\image\icon2.png')
 pygame.display.set_icon(icon)
 backg = pygame.image.load(r'C:\code\image\terminal.png')
 
+#know weather now
+def get_weather():
+    API_KEY = "b3b1a603ceffddbe247b223101ec873d"
+    City = "Tel Aviv"
+
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={City}&appid={API_KEY}&units=metric&lang=ru"
+
+    response = requests.get(url)
+    data = response.json()
+
+    if data["cod"] == 200:
+        return {
+            "temp": data["main"]["temp"],
+            "feels": data["main"]["feels_like"],
+            "desc": data["weather"][0]["description"]
+        }
+    else: 
+        return None
 
 # Function for drawing the screen (to avoid duplicating code)
-def update_screen(screen, backg, font):
+def update_screen(screen, backg, font, weather):
     screen.blit(backg, (0, 0)) 
 
-
-    text_user_surface = font.render('C:Users:user>' + user_text, True,'white') 
+    text_user_surface = font.render('C:Users:user>' + user_text, True, 'white') 
     screen.blit(text_user_surface, (230, 250)) 
 
-    Terminal = font.render('Jarvis [Version 0.25]  (Terminal)',True,'white')
-    screen.blit(Terminal,(300,180))
+    Terminal = font.render('Jarvis [Version 0.25]  (Terminal)', True, 'white')
+    screen.blit(Terminal, (300, 180))
 
-    text_jarvis_surface = font.render("Jarvis: " + jarvis_text, True,'white')
+    text_jarvis_surface = font.render("Jarvis: " + jarvis_text, True, 'white')
     screen.blit(text_jarvis_surface, (230, 300))
+
+    if weather:
+
+        text_temp = font.render(f"Температура: {weather['temp']}°C", True, 'white')
+        screen.blit(text_temp, (700, 250))
+
+        text_feels = font.render(f"Ощущается как: {weather['feels']}°C", True, 'white')
+        screen.blit(text_feels, (700, 300))
+
+        text_desc = font.render(f"{weather['desc']}", True, 'white')
+        screen.blit(text_desc, (700, 350))
+
+        if weather['temp'] > 21:
+            ascii_sun = """                        |
+                    .   |
+                        |
+          \    *        |     *    .  /
+            \        *  |  .        /
+         .    \     ___---___     /    .  
+                \.--         --./     
+     ~-_    *  ./               \.   *   _-~
+        ~-_   /                   \   _-~     *
+   *       ~-/                     \-~        
+     .      |                       |      .
+         * |                         | *     
+-----------|                         |-----------
+  .        |                         |        .    
+        *   |                       | *
+           _-\                     /-_    *
+     .  _-~ . \                   /   ~-_     
+     _-~       `\               /'*      ~-_  
+    ~           /`--___   ___--'\           ~
+           *  /        ---     .  \   jgs
+            /     *     |           \\
+          /             |   *         \\
+                     .  |        .
+                        |
+                        |"""
+
+            y = 400  
+            for line in ascii_sun.splitlines():
+                text_surf = font.render(line, True, 'white')
+                screen.blit(text_surf, (700, y))
+                y += 15
+
+        elif weather['temp'] < 20:
+            ascii_clouds = """          .-~~~-.
+  .- ~ ~-(       )_ _
+ /                     ~ -.
+|                           \\
+ \\                         .'
+   ~- . _____________ . -~    """
+
+            y = 400  
+            for line in ascii_clouds.splitlines():
+                text_surf1 = font.render(line, True, 'white')
+                screen.blit(text_surf1, (700, y))
+                y += 30
 
     pygame.display.update()
 
@@ -51,8 +126,7 @@ def speek(text):
     global jarvis_text 
     jarvis_text = text 
     
-    
-    update_screen(screen, backg, font)
+    update_screen(screen, backg, font, weather)
 
     engine = pyttsx3.init()
     rate = engine.getProperty('rate')
@@ -70,13 +144,12 @@ def listen():
     with sr.Microphone() as source:        
         global jarvis_text
         jarvis_text = "Online..."
-        update_screen(screen, backg, font)
 
         r.adjust_for_ambient_noise(source, duration=1)
 
         global user_text
         user_text = "Listening..." 
-        update_screen(screen, backg, font)
+        update_screen(screen, backg, font,weather)
         
         try:
             audio_text = r.listen(source, timeout=8, phrase_time_limit=15)
@@ -99,6 +172,7 @@ def listen():
             print("Ошибка google:", e)
             return ""
         
+weather = None
 
 speek("Connecting")
 
@@ -109,20 +183,18 @@ if date == date_today:
 
 
 running = True
+
 while running:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
             pygame.quit()
-
-    update_screen(screen, backg, font)
     try:
         command = listen()
-        
+
         if command:
             user_text = command
-            update_screen(screen, backg, font)
 
         if "jarvis sleep" in command:
             speek("Goodbye sir")
@@ -133,8 +205,7 @@ while running:
             project_name = listen()
 
             user_text = project_name
-            update_screen(screen, backg, font)
-            
+
             if project_name:
                 filename = project_name + ".py"
                 with open(filename, "w", encoding="utf-8") as f:
@@ -170,8 +241,41 @@ while running:
         #datetime
         elif "jarvis what time is it" in command or "который час" in command:
             speek(time_str)
+
         elif "jarvis what date is today" in command or "какое сегодня число" in command:
             speek(str(date_today))
+
+        #pyautogui
+
+        elif "volume up" in command or "увеличь громкость" in command:
+            pyautogui.press("volumeup")
+            speek("volume increase")
+
+        elif "volume down" in command or "уменьши громкость" in command:
+            pyautogui.press("volumedown")
+            speek("volume reduced")
+
+        elif "volume mute" in command or "отключи звука" in command:
+            pyautogui.press("volumemute")
+            speek("turn off volume")
+
+        elif "jarvis create screenshot" in command or "Джарвис создает скриншот" in command:
+            speek("creating screenshot")
+            screenShot = pyautogui.screenshot()
+            screenShot.save(str(date_today) + "screenshot.png")
+
+        #weather
+        elif "what weather now" in command or "какая погода сейчас" in command:
+             speek("Just a second, checking the weather.")
+             weather = get_weather()
+
+             if weather:
+               speek(f"Температура {weather['temp']} градусов")
+               speek(f"Ощущается как {weather['feels']} градусов")
+               speek(f"На улице {weather['desc']}")
+
+             else:
+              speek("Не удалось получить данные о погоде")
 
         elif "jarvis" in command: 
              if len(command) < 10:
@@ -179,3 +283,5 @@ while running:
 
     except Exception as e:
         print("Ошибка в цикле:", e)
+
+    update_screen(screen, backg, font, weather)
